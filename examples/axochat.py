@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 import binascii
 import socket
@@ -8,8 +9,9 @@ import curses
 from curses.textpad import Textbox
 from random import randint
 from contextlib import contextmanager
-from pyaxo import Axolotl
 from time import sleep
+
+from pyaxo import Axolotl
 
 """
 Standalone chat script using AES256 encryption with Axolotl ratchet for
@@ -52,6 +54,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
+
 @contextmanager
 def socketcontext(*args, **kwargs):
     s = socket.socket(*args, **kwargs)
@@ -60,6 +63,7 @@ def socketcontext(*args, **kwargs):
     yield s
     s.close()
 
+
 @contextmanager
 def axo(my_name, other_name, dbname, dbpassphrase):
     a = Axolotl(my_name, dbname=dbname, dbpassphrase=dbpassphrase)
@@ -67,22 +71,25 @@ def axo(my_name, other_name, dbname, dbpassphrase):
     yield a
     a.saveState()
 
+
 class _Textbox(Textbox):
     """
     curses.textpad.Textbox requires users to ^g on completion, which is sort
-    of annoying for an interactive chat client such as this, which typically only
-    reuquires an enter. This subclass fixes this problem by signalling completion
-    on Enter as well as ^g. Also, map <Backspace> key to ^h.
+    of annoying for an interactive chat client such as this, which typically
+    only reuquires an enter. This subclass fixes this problem by signalling
+    completion on Enter as well as ^g. Also, map <Backspace> key to ^h.
     """
+
     def __init__(*args, **kwargs):
         Textbox.__init__(*args, **kwargs)
 
     def do_command(self, ch):
-        if ch == 10: # Enter
+        if ch == 10:  # Enter
             return 0
-        if ch == 127: # Enter
+        if ch == 127:  # Enter
             return 8
         return Textbox.do_command(self, ch)
+
 
 def validator(ch):
     """
@@ -96,8 +103,9 @@ def validator(ch):
         return ch
     finally:
         lock.release()
-        sleep(0.01) # let receiveThread in if necessary
+        sleep(0.01)  # let receiveThread in if necessary
         lock.acquire()
+
 
 def windows():
     stdscr = curses.initscr()
@@ -108,8 +116,8 @@ def windows():
     curses.cbreak()
     curses.curs_set(1)
     (sizey, sizex) = stdscr.getmaxyx()
-    input_win = curses.newwin(8, sizex, sizey-8, 0)
-    output_win = curses.newwin(sizey-8, sizex, 0, 0)
+    input_win = curses.newwin(8, sizex, sizey - 8, 0)
+    output_win = curses.newwin(sizey - 8, sizex, 0, 0)
     input_win.idlok(1)
     input_win.scrollok(1)
     input_win.nodelay(1)
@@ -121,20 +129,23 @@ def windows():
     output_win.leaveok(0)
     return stdscr, input_win, output_win
 
-def closeWindows(stdscr):
+
+def close_windows(stdscr):
     curses.nocbreak()
     stdscr.keypad(0)
     curses.echo()
     curses.endwin()
 
+
 def usage():
-    print 'Usage: ' + sys.argv[0] + ' -(s,c,g)'
-    print ' -s: start a chat in server mode'
-    print ' -c: start a chat in client mode'
-    print ' -g: generate a key database for a nick'
+    print('Usage: ' + sys.argv[0] + ' -(s,c,g)')
+    print(' -s: start a chat in server mode')
+    print(' -c: start a chat in client mode')
+    print(' -g: generate a key database for a nick')
     exit()
 
-def receiveThread(sock, stdscr, input_win, output_win):
+
+def receive_thread(sock, _, input_win, output_win):
     global screen_needs_update
     while True:
         data = ''
@@ -151,60 +162,68 @@ def receiveThread(sock, stdscr, input_win, output_win):
         (cursory, cursorx) = input_win.getyx()
         for data in data_list:
             if data != '':
-                with axo(NICK, OTHER_NICK, dbname=OTHER_NICK+'.db',
-                         dbpassphrase=getPasswd(NICK)) as a:
+                with axo(NICK, OTHER_NICK, dbname=OTHER_NICK + '.db',
+                         dbpassphrase=get_passwd(NICK)) as a:
                     output_win.addstr(a.decrypt(data))
         input_win.move(cursory, cursorx)
         input_win.cursyncup()
         input_win.noutrefresh()
         output_win.noutrefresh()
-        sleep(0.01) # write time for axo db
+        sleep(0.01)  # write time for axo db
         screen_needs_update = True
         lock.release()
 
-def chatThread(sock):
+
+def chat_thread(sock):
     global screen_needs_update
     stdscr, input_win, output_win = windows()
     input_win.addstr(0, 0, NICK + ':> ')
     textpad = _Textbox(input_win, insert_mode=True)
     textpad.stripspaces = True
-    t = threading.Thread(target=receiveThread, args=(sock, stdscr, input_win,output_win))
+    t = threading.Thread(target=receive_thread,
+                         args=(sock, stdscr, input_win, output_win))
     t.daemon = True
     t.start()
     try:
         while True:
             lock.acquire()
             data = textpad.edit(validator)
-            if NICK+':> .quit' in data:
-                closeWindows(stdscr)
+            if NICK + ':> .quit' in data:
+                close_windows(stdscr)
                 sys.exit()
             input_win.clear()
-            input_win.addstr(NICK+':> ')
-            output_win.addstr(data.replace('\n', '') + '\n', curses.color_pair(3))
+            input_win.addstr(NICK + ':> ')
+            output_win.addstr(data.replace('\n', '') + '\n',
+                              curses.color_pair(3))
             output_win.noutrefresh()
-            input_win.move(0, len(NICK)+3)
+            input_win.move(0, len(NICK) + 3)
             input_win.cursyncup()
             input_win.noutrefresh()
             screen_needs_update = True
             data = data.replace('\n', '') + '\n'
-            with axo(NICK, OTHER_NICK, dbname=OTHER_NICK+'.db',
-                     dbpassphrase=getPasswd(NICK)) as a:
+            with axo(NICK, OTHER_NICK, dbname=OTHER_NICK + '.db',
+                     dbpassphrase=get_passwd(NICK)) as a:
                 try:
                     sock.send(a.encrypt(data) + 'EOP')
                 except socket.error:
                     input_win.addstr('Disconnected')
                     input_win.refresh()
-                    closeWindows(stdscr)
+                    close_windows(stdscr)
                     sys.exit()
-            sleep(0.01) # write time for axo db
+            sleep(0.01)  # write time for axo db
             lock.release()
     except KeyboardInterrupt:
-        closeWindows(stdscr)
+        close_windows(stdscr)
 
-def getPasswd(nick):
+
+def get_passwd(_):
     return '1'
 
-if __name__ == '__main__':
+
+# noinspection PyBroadException
+def main():
+    global lock, screen_needs_update, NICK, OTHER_NICK
+    mode = None
     try:
         mode = sys.argv[1]
     except:
@@ -214,54 +233,66 @@ if __name__ == '__main__':
     OTHER_NICK = raw_input('Enter the nick of the other party: ')
     lock = threading.Lock()
     screen_needs_update = False
-    HOST = ''
+    host = ''
+    port = 50000
     while True:
         try:
             if mode == '-g':
-                PORT = 50000 # dummy assignment
+                port = 50000  # dummy assignment
                 break
-            PORT = raw_input('TCP port (1 for random choice, 50000 is default): ')
-            PORT = int(PORT)
+            port = raw_input(
+                'TCP port (1 for random choice, 50000 is default): ')
+            port = int(port)
             break
         except ValueError:
-            PORT = 50000
             break
-    if PORT >= 1025 and PORT <= 65535:
+
+    if 1025 <= port <= 65535:
         pass
-    elif PORT == 1:
-        PORT = 1025 + randint(0, 64510)
-        print 'PORT is ' + str(PORT)
+    elif port == 1:
+        port = 1025 + randint(0, 64510)
+        print('PORT is ' + str(port))
 
     if mode == '-s':
-        print 'Waiting for ' + OTHER_NICK + ' to connect...'
+        print('Waiting for ' + OTHER_NICK + ' to connect...')
         with socketcontext(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind((HOST, PORT))
+            s.bind((host, port))
             s.listen(1)
             conn, addr = s.accept()
-            chatThread(conn)
+            chat_thread(conn)
 
     elif mode == '-c':
-        HOST = raw_input('Enter the server: ')
-        print 'Connecting to ' + HOST + '...'
+        host = raw_input('Enter the server: ')
+        print('Connecting to ' + host + '...')
         with socketcontext(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((HOST, PORT))
-            chatThread(s)
+            s.connect((host, port))
+            chat_thread(s)
 
     elif mode == '-g':
-         a = Axolotl(NICK, dbname=OTHER_NICK+'.db')
-         a.printKeys()
+        a = Axolotl(NICK, dbname=OTHER_NICK + '.db')
+        a.printKeys()
 
-         ans = raw_input('Do you want to create a new Axolotl database? y/N ').strip()
-         if ans == 'y':
-             identity = raw_input('What is the identity key for the other party? ').strip()
-             ratchet = raw_input('What is the ratchet key for the other party? ').strip()
-             handshake = raw_input('What is the handshake key for the other party? ').strip()
-             a.initState(OTHER_NICK, binascii.a2b_base64(identity), binascii.a2b_base64(handshake),
-                         binascii.a2b_base64(ratchet))
-             a.saveState()
-             print 'The database for ' + NICK + ' -> ' + OTHER_NICK + ' has been saved.'
-         else:
-             print 'OK, nothing has been saved...'
+        ans = raw_input(
+            'Do you want to create a new Axolotl database? y/N ').strip()
+        if ans == 'y':
+            identity = raw_input(
+                'What is the identity key for the other party? ').strip()
+            ratchet = raw_input(
+                'What is the ratchet key for the other party? ').strip()
+            handshake = raw_input(
+                'What is the handshake key for the other party? ').strip()
+            a.initState(OTHER_NICK, binascii.a2b_base64(identity),
+                        binascii.a2b_base64(handshake),
+                        binascii.a2b_base64(ratchet))
+            a.saveState()
+            print('The database for ' + NICK + ' -> ' +
+                  OTHER_NICK + ' has been saved.')
+        else:
+            print('OK, nothing has been saved...')
 
     else:
         usage()
+
+
+if __name__ == '__main__':
+    main()

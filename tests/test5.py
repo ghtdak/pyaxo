@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
 import os
+
 from pyaxo import Axolotl
+
 
 # need clean database for this example to work
 try:
@@ -45,4 +47,3 @@ print 'b decrypt: ', b.decrypt(msg3)
 # save the state
 a.saveState()
 b.saveState()
-

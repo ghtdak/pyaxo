@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-import copy
 import os
+
 from pyaxo import Axolotl
 
 name1 = 'Angie'
@@ -14,32 +14,34 @@ a.loadState(name1, name2)
 b.loadState(name2, name1)
 
 topic = ['   My Name',
-          'Other Name',
-          '        RK',
-          '       HKs',
-          '       HKr',
-          '      NHKs',
-          '      NHKr',
-          '       CKs',
-          '       CKr',
-          ' DHIs_priv',
-          '      DHIs',
-          '      DHIr',
-          ' DHRs_priv',
-          '      DHRs',
-          '      DHRr',
-          '    CONVid',
-          '        Ns',
-          '        Nr',
-          '       PNs',
-          '   ratchet',
-          '      mode']
+         'Other Name',
+         '        RK',
+         '       HKs',
+         '       HKr',
+         '      NHKs',
+         '      NHKr',
+         '       CKs',
+         '       CKr',
+         ' DHIs_priv',
+         '      DHIs',
+         '      DHIr',
+         ' DHRs_priv',
+         '      DHRs',
+         '      DHRr',
+         '    CONVid',
+         '        Ns',
+         '        Nr',
+         '       PNs',
+         '   ratchet',
+         '      mode']
+
 
 def hilite(text, c=False):
     attr = []
     if c:
         attr.append('41')
     return '\x1b[%sm%s\x1b[0m' % (';'.join(attr), text)
+
 
 data_old = False
 os.system('clear')
@@ -59,8 +61,8 @@ while True:
     if not data_old:
         data_old = data
     for i in range(len(data[0][0])):
-        if data[0][0][i] != data_old[0][0][i]: a_chg=True
-        if data[1][0][i] != data_old[1][0][i]: b_chg=True
+        if data[0][0][i] != data_old[0][0][i]: a_chg = True
+        if data[1][0][i] != data_old[1][0][i]: b_chg = True
         if topic[i] == '      mode':
             if data[0][0][i] == 1:
                 var = 'A'
@@ -68,7 +70,8 @@ while True:
             else:
                 var = 'B'
                 var2 = 'A'
-        elif topic[i]=='        Ns' or topic[i]=='        Nr' or topic[i]=='       PNs':
+        elif topic[i] == '        Ns' or topic[i] == '        Nr' or topic[
+            i] == '       PNs':
             var = data[0][0][i]
             var2 = data[1][0][i]
         elif topic[i] == '   ratchet':
@@ -86,6 +89,6 @@ while True:
         b_chg = False
     print '--------------'
     ans = raw_input('Load new state? ')
-    if ans=='q' or ans=='n': exit()
+    if ans == 'q' or ans == 'n': exit()
     os.system('clear')
     data_old = data

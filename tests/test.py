@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
 import os
+
 from pyaxo import Axolotl
+
 
 # need clean database for this example to work
 try:
@@ -14,8 +16,10 @@ a = Axolotl('Angie', dbpassphrase=None)
 b = Axolotl('Barb', dbpassphrase=None)
 
 # initialize their states
-a.initState('Barb', b.state['DHIs'], b.handshakePKey, b.state['DHRs'], verify=False)
-b.initState('Angie', a.state['DHIs'], a.handshakePKey, a.state['DHRs'], verify=False)
+a.initState('Barb', b.state['DHIs'], b.handshakePKey, b.state['DHRs'],
+            verify=False)
+b.initState('Angie', a.state['DHIs'], a.handshakePKey, a.state['DHRs'],
+            verify=False)
 
 # tell who is who
 if a.mode:
@@ -56,4 +60,3 @@ print 'b decrypt: ', b.decrypt(msg6)
 # save the state
 a.saveState()
 b.saveState()
-

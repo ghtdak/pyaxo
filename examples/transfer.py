@@ -22,12 +22,12 @@ The end of packet (EOP) and end of file (EOF) markers I use are pretty simple,
 but unlikely to show up in ciphertext.
 """
 
-
-from pyaxo import Axolotl
 from contextlib import contextmanager
 import sys
 import socket
 import os
+
+from pyaxo import Axolotl
 
 try:
     location = raw_input('Database directory (default ~/.bin)? ').strip()
@@ -44,11 +44,13 @@ except IndexError:
 
 backlog = 1
 
+
 @contextmanager
 def socketcontext(*args, **kwargs):
     s = socket.socket(*args, **kwargs)
     yield s
     s.close()
+
 
 @contextmanager
 def axo(my_name, other_name, dbname, dbpassphrase):
@@ -57,20 +59,24 @@ def axo(my_name, other_name, dbname, dbpassphrase):
     yield a
     a.saveState()
 
+
 if sys.argv[1] == '-s':
     # open socket and send data
     with socketcontext(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.connect((host, port))
-        with axo('send', 'receive', dbname=location+'/send.db', dbpassphrase='1') as a:
+        with axo('send', 'receive', dbname=location + '/send.db',
+                 dbpassphrase='1') as a:
             with open(file_name, 'rb') as f:
                 plaintext = f.read()
                 plainlength = len(plaintext)
-                while plainlength/size > 253:
+                while plainlength / size > 253:
                     print 'File too large to transfer - increase size parameter'
-                    print 'Recommended >= ' + str(plainlength/128) + ' bytes per block'
+                    print 'Recommended >= ' + str(
+                        plainlength / 128) + ' bytes per block'
                     size = int(raw_input('File transfer block size? '))
-                plaintext = str(len(file_name)).zfill(2) + file_name + plaintext
+                plaintext = str(len(file_name)).zfill(
+                    2) + file_name + plaintext
                 while len(plaintext) > size:
                     msg = plaintext[:size]
                     if msg == '': break
@@ -96,7 +102,8 @@ if sys.argv[1] == '-r':
         s.bind((host, port))
         s.listen(backlog)
         client, address = s.accept()
-        with axo('receive', 'send', dbname=location+'/receive.db', dbpassphrase='1') as a:
+        with axo('receive', 'send', dbname=location + '/receive.db',
+                 dbpassphrase='1') as a:
             plaintext = ''
             ciphertext = ''
             while True:
@@ -112,9 +119,9 @@ if sys.argv[1] == '-r':
                     item = item[:-3]
                 plaintext += a.decrypt(item)
             filenamelength = int(plaintext[:2])
-            file_name = plaintext[2:2+filenamelength]
+            file_name = plaintext[2:2 + filenamelength]
             with open(file_name, 'wb') as f:
-                f.write(plaintext[2+filenamelength:])
+                f.write(plaintext[2 + filenamelength:])
 
             # send confirmation
             reply = a.encrypt('Got It!')

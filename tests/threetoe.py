@@ -4,7 +4,6 @@
 A three-toed Axolotl track ;-)
 """
 
-
 from pyaxo import Axolotl
 
 # create two instance classes
@@ -12,8 +11,10 @@ a = Axolotl('Angie')
 b = Axolotl('Barb')
 
 # initialize their states
-a.initState('Barb', b.state['DHIs'], b.handshakePKey, b.state['DHRs'], verify=False)
-b.initState('Angie', a.state['DHIs'], a.handshakePKey, a.state['DHRs'], verify=False)
+a.initState('Barb', b.state['DHIs'], b.handshakePKey, b.state['DHRs'],
+            verify=False)
+b.initState('Angie', a.state['DHIs'], a.handshakePKey, a.state['DHRs'],
+            verify=False)
 
 # tell who is who
 if a.mode:
@@ -62,4 +63,3 @@ print 'a decrypt: ', a.decrypt(msg1)
 print 'a decrypt: ', a.decrypt(msg2)
 print
 print 'You get the idea...'
-
