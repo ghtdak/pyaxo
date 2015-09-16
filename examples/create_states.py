@@ -7,18 +7,18 @@ from pyaxo import Axolotl
 
 # start with a fresh database
 try:
-    os.remove('./name1.db')
-    os.remove('./name2.db')
+    os.remove('./alice.db')
+    os.remove('./bob.db')
 except OSError:
     pass
 
 # unencrypted databases
-a = Axolotl('name1', dbname='name1.db', dbpassphrase=None)
-b = Axolotl('name2', dbname='name2.db', dbpassphrase=None)
+a = Axolotl('alice', dbname='alice.db', dbpassphrase=None)
+b = Axolotl('bob', dbname='bob.db', dbpassphrase=None)
 
-a.initState('name2', b.state['DHIs'], b.handshakePKey,
+a.initState('bob', b.state['DHIs'], b.handshakePKey,
             b.state['DHRs'], verify=False)
-b.initState('name1', a.state['DHIs'], a.handshakePKey,
+b.initState('alice', a.state['DHIs'], a.handshakePKey,
             a.state['DHRs'], verify=False)
 
 a.saveState()

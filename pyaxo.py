@@ -73,7 +73,6 @@ class Axolotl:
         self.ratchetKey = None
         self.ratchetPKey = None
         self.name = name
-        self.dbname = dbname
         self.db = None
         self.mode = None
         self.staged_HK_mk = None
@@ -85,6 +84,8 @@ class Axolotl:
         user_path = os.path.expanduser(user_pathstring)
         keyring = [user_path + '/.gnupg/pubring.gpg']
         secret_keyring = [user_path + '/.gnupg/secring.gpg']
+
+        self.dbname = user_path + '/tmp/pyaxo_db/' + dbname
 
         self.gpg = GPG(gnupghome=user_path + '/.axolotl', gpgbinary='gpg',
                        keyring=keyring,
@@ -595,7 +596,7 @@ class Axolotl:
                 if self.dbpassphrase is not None:
                     sql = self.gpg.decrypt_file(f,
                                                 passphrase=self.dbpassphrase)
-                    if sql and sql != '':
+                    if sql is not None and sql != '':
                         db.cursor().executescript(sql.data)
                         return db
                     else:
@@ -606,7 +607,8 @@ class Axolotl:
                     db.cursor().executescript(sql)
                     return db
         except IOError:
-            return db
+                return db
+
 
     def write_db(self):
 
