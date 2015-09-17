@@ -27,6 +27,7 @@ For more information, see https://github.com/rxcomm/pyaxo
 import sqlite3
 from hashlib import sha256, sha224
 from binascii import a2b_base64, hexlify, unhexlify, b2a_base64
+import json
 import os
 import sys
 from getpass import getpass
@@ -125,44 +126,24 @@ class Axolotl:
         with self.db:
             cur = self.db.cursor()
 
-            cur.execute("""\
-            CREATE TABLE IF NOT EXISTS skipped_mk (
-              my_identity,
-              to_identity,
-              HKr TEXT,
-              mk TEXT,
+            cur.execute("""
+            CREATE TABLE IF NOT EXISTS skipped_mk
+            (my_identity, to_identity, HKr TEXT, mk TEXT,
               timestamp INTEGER )""")
 
-            cur.execute("""\
-            CREATE UNIQUE INDEX IF NOT EXISTS \
+            cur.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS
                          message_keys ON skipped_mk (mk)""")
 
-            cur.execute("""\
-            CREATE TABLE IF NOT EXISTS conversations (
-              my_identity TEXT,
-              other_identity TEXT,
-              RK TEXT,
-              HKs TEXT,
-              HKr TEXT,
-              NHKs TEXT,
-              NHKr TEXT,
-              CKs TEXT,
-              CKr TEXT,
-              DHIs_priv TEXT,
-              DHIs TEXT,
-              DHIr TEXT,
-              DHRs_priv TEXT,
-              DHRs TEXT,
-              DHRr TEXT,
-              CONVid TEXT,
-              Ns INTEGER,
-              Nr INTEGER,
-              PNs INTEGER,
-              ratchet_flag INTEGER,
-              mode INTEGER
-            )""")
+            cur.execute("""
+            CREATE TABLE IF NOT EXISTS conversations
+            (my_identity TEXT, other_identity TEXT, RK TEXT, HKs TEXT,
+              HKr TEXT, NHKs TEXT, NHKr TEXT, CKs TEXT, CKr TEXT,
+              DHIs_priv TEXT, DHIs TEXT, DHIr TEXT, DHRs_priv TEXT,
+              DHRs TEXT, DHRr TEXT, CONVid TEXT, Ns INTEGER, Nr INTEGER,
+              PNs INTEGER, ratchet_flag INTEGER, mode INTEGER)""")
 
-            cur.execute("""\
+            cur.execute("""
             CREATE UNIQUE INDEX IF NOT EXISTS
                          conversation_route ON
                          conversations (my_identity, other_identity)""")
@@ -251,25 +232,12 @@ class Axolotl:
         DHIr = other_identityKey
 
         self.state = \
-            {'name': self.name,
-             'other_name': other_name,
-             'RK': RK,
-             'HKs': HKs,
-             'HKr': HKr,
-             'NHKs': NHKs,
-             'NHKr': NHKr,
-             'CKs': CKs,
-             'CKr': CKr,
-             'DHIs_priv': self.state['DHIs_priv'],
-             'DHIs': self.state['DHIs'],
-             'DHIr': DHIr,
-             'DHRs_priv': DHRs_priv,
-             'DHRs': DHRs,
-             'DHRr': DHRr,
-             'CONVid': CONVid,
-             'Ns': Ns,
-             'Nr': Nr,
-             'PNs': PNs,
+            {'name': self.name, 'other_name': other_name, 'RK': RK,
+             'HKs': HKs, 'HKr': HKr, 'NHKs': NHKs, 'NHKr': NHKr, 'CKs': CKs,
+             'CKr': CKr, 'DHIs_priv': self.state['DHIs_priv'],
+             'DHIs': self.state['DHIs'], 'DHIr': DHIr,
+             'DHRs_priv': DHRs_priv, 'DHRs': DHRs, 'DHRr': DHRr,
+             'CONVid': CONVid, 'Ns': Ns, 'Nr': Nr, 'PNs': PNs,
              'ratchet_flag': ratchet_flag,
              }
 
@@ -313,20 +281,14 @@ class Axolotl:
         with self.db:
             cur = self.db.cursor()
             for mk, HKr in self.staged_HK_mk.iteritems():
-                cur.execute("""\
-                REPLACE INTO skipped_mk (
-                  my_identity,
-                  to_identity,
-                  HKr,
-                  mk,
-                  timestamp
-                ) VALUES (?, ?, ?, ?, ?)""",
-                            (self.state['name'],
-                             self.state['other_name'],
-                             b2a_base64(HKr).strip(),
-                             b2a_base64(mk).strip(),
-                             timestamp
-                             ))
+                cur.execute("""REPLACE INTO skipped_mk (my_identity,
+                  to_identity, HKr, mk, timestamp ) VALUES (?, ?, ?, ?, ?)""",
+                            self.state['name'],
+                            self.state['other_name'],
+                            b2a_base64(HKr).strip(),
+                            b2a_base64(mk).strip(),
+                            timestamp)
+
             rowtime = timestamp - self.storeTime
             cur.execute('DELETE FROM skipped_mk WHERE timestamp < ?',
                         (rowtime,))
@@ -354,6 +316,7 @@ class Axolotl:
             mk = sha256(CKp + '0').digest()
             CKp = sha256(CKp + '1').digest()
             self.staged_HK_mk[mk] = HKr
+
         mk = sha256(CKp + '0').digest()
         CKp = sha256(CKp + '1').digest()
         return CKp, mk
@@ -461,73 +424,48 @@ class Axolotl:
         else:
             print('Your Handshake key is not available')
 
+    def to_json(self):
+        _j = {'name': self.name,
+              'identity_key': b2a_base64(self.state('DHIs')),
+              'fingerprint': sha224(self.state['DHIs']).hexdigest().upper(),
+              'ratchet_key': b2a_base64(self.state['DHRs'])}
+        return json.dumps(_j)
+
+    def init_from_json(self, _jsn):
+        _k = json.loads(_jsn)
+        self.initState(_k['name'], a2b_base64(_k['identity_key']),
+                       a2b_base64(_k['fingerprint']),
+                       a2b_base64(_k['ratchet_key']))
+        self.saveState()
+
     def saveState(self):
-        HKs = 0 if self.state['HKs'] is None else b2a_base64(
-            self.state['HKs']).strip()
-        HKr = 0 if self.state['HKr'] is None else b2a_base64(
-            self.state['HKr']).strip()
-        CKs = 0 if self.state['CKs'] is None else b2a_base64(
-            self.state['CKs']).strip()
-        CKr = 0 if self.state['CKr'] is None else b2a_base64(
-            self.state['CKr']).strip()
-        DHIr = 0 if self.state['DHIr'] is None else b2a_base64(
-            self.state['DHIr']).strip()
-        DHRs_priv = 0 if self.state[
-                             'DHRs_priv'] is None else b2a_base64(
-            self.state['DHRs_priv']).strip()
-        DHRs = 0 if self.state['DHRs'] is None else b2a_base64(
-            self.state['DHRs']).strip()
-        DHRr = 0 if self.state['DHRr'] is None else b2a_base64(
-            self.state['DHRr']).strip()
+        ktup = ('HKs', 'HKr', 'CKs', 'CKR', 'DHIr', 'DHRs_priv', 'DHRs')
+
+        v = {k: b2a_base64(self.state[k]).strip for k in ktup}
+
         ratchet_flag = 1 if self.state['ratchet_flag'] else 0
         mode = 1 if self.mode else 0
         with self.db:
             cur = self.db.cursor()
             cur.execute("""\
             REPLACE INTO conversations (
-                       my_identity,
-                       other_identity,
-                       RK,
-                       HKS,
-                       HKr,
-                       NHKs,
-                       NHKr,
-                       CKs,
-                       CKr,
-                       DHIs_priv,
-                       DHIs,
-                       DHIr,
-                       DHRs_priv,
-                       DHRs,
-                       DHRr,
-                       CONVid,
-                       Ns,
-                       Nr,
-                       PNs,
-                       ratchet_flag,
-                       mode
-                       ) VALUES (
-                       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                       my_identity, other_identity, RK,HKS, HKr, NHKs, NHKr,
+                       CKs, CKr, DHIs_priv, DHIs, DHIr, DHRs_priv, DHRs,
+                       DHRr, CONVid, Ns, Nr, PNs, ratchet_flag, mode)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                         (self.state['name'],
                          self.state['other_name'],
                          b2a_base64(self.state['RK']).strip(),
-                         HKs,
-                         HKr,
+                         v['HKs'], v['HKr'],
                          b2a_base64(self.state['NHKs']).strip(),
                          b2a_base64(self.state['NHKr']).strip(),
-                         CKs,
-                         CKr,
+                         v['CKs'], v['CKr'],
                          b2a_base64(self.state['DHIs_priv']).strip(),
                          b2a_base64(self.state['DHIs']).strip(),
-                         DHIr,
-                         DHRs_priv,
-                         DHRs,
-                         DHRr,
+                         v['DHIr'], v['DHRs_priv'], v['DHRs'], v['DHRr'],
                          b2a_base64(self.state['CONVid']).strip(),
-                         self.state['Ns'],
-                         self.state['Nr'],
-                         self.state['PNs'],
+                         self.state['Ns'], self.state['Nr'], self.state['PNs'],
                          ratchet_flag,
                          mode
                          ))
@@ -546,19 +484,18 @@ class Axolotl:
             rows = cur.fetchall()
             for row in rows:
                 if row[0] == name and row[1] == other_name:
-                    self.state = \
-                        {'name': row[0],
-                         'other_name': row[1],
-                         'RK': a2b_base64(row[2]),
-                         'NHKs': a2b_base64(row[5]),
-                         'NHKr': a2b_base64(row[6]),
-                         'DHIs_priv': a2b_base64(row[9]),
-                         'DHIs': a2b_base64(row[10]),
-                         'CONVid': a2b_base64(row[15]),
-                         'Ns': row[16],
-                         'Nr': row[17],
-                         'PNs': row[18],
-                         }
+                    self.state = {'name': row[0],
+                                  'other_name': row[1],
+                                  'RK': a2b_base64(row[2]),
+                                  'NHKs': a2b_base64(row[5]),
+                                  'NHKr': a2b_base64(row[6]),
+                                  'DHIs_priv': a2b_base64(row[9]),
+                                  'DHIs': a2b_base64(row[10]),
+                                  'CONVid': a2b_base64(row[15]),
+                                  'Ns': row[16],
+                                  'Nr': row[17],
+                                  'PNs': row[18]}
+
                     self.name = self.state['name']
 
                     def do_bin(loc):
@@ -594,21 +531,20 @@ class Axolotl:
         try:
             with open(self.dbname, 'rb') as f:
                 if self.dbpassphrase is not None:
-                    sql = self.gpg.decrypt_file(f,
-                                                passphrase=self.dbpassphrase)
+                    sql = \
+                        self.gpg.decrypt_file(f, passphrase=self.dbpassphrase)
+
                     if sql is not None and sql != '':
                         db.cursor().executescript(sql.data)
                         return db
                     else:
                         raise (Axolotl_exception('Bad passphrase!'))
-
                 else:
                     sql = f.read()
                     db.cursor().executescript(sql)
                     return db
         except IOError:
-                return db
-
+            return db
 
     def write_db(self):
 
@@ -621,6 +557,7 @@ class Axolotl:
                                          armor=False,
                                          always_trust=True,
                                          passphrase=self.dbpassphrase)
+
             with open(self.dbname, 'wb') as f:
                 f.write(crypt_sql.data)
         else:
